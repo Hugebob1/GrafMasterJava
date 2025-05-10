@@ -7,6 +7,11 @@ public class GraphChunk implements Iterable<Vertex> {
     int totalVertices;
     Vertex [] vertices;
 
+    public GraphChunk(int totalVertices) {
+        this.totalVertices = totalVertices;
+        this.vertices = new Vertex[totalVertices];
+    }
+
     public Vertex getById(int id) {
         for (int i = 0; i < totalVertices; i++) {
             if (vertices[i] != null && vertices[i].id == id)
@@ -54,17 +59,6 @@ public class GraphChunk implements Iterable<Vertex> {
             System.out.println("(" + v.x + "," + v.y + ")");
         }
     }
-    public static float printDiff(GraphChunk []graph) {
-        int totalVertices = 0;
-        int mini = graph[0].totalVertices;
-        int maxi = graph[0].totalVertices;
-        for(GraphChunk graphChunk : graph) {
-            totalVertices+=graphChunk.totalVertices;
-            mini = Math.min(graphChunk.totalVertices, mini);
-            maxi = Math.max(maxi, graphChunk.totalVertices);
-        }
-        float baseSize = (float) totalVertices / graph.length;
-        return (float) (maxi - mini) /baseSize*100.0f;
-    }
+
 
 }

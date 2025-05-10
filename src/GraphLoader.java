@@ -34,7 +34,12 @@ public class GraphLoader {
 
             for (int i = 0; i < n; i++) {
                 List<String> group = groupLines.get(i);
-                Vertex[] vertices = new Vertex[group.size()];
+                int maxId = group.stream()
+                        .mapToInt(s -> Integer.parseInt(s.split(":")[0].trim()))
+                        .max().orElse(group.size());
+
+                Vertex[] vertices = new Vertex[maxId + 1];
+
 
                 for (int j = 0; j < group.size(); j++) {
                     String s = group.get(j);
@@ -61,8 +66,8 @@ public class GraphLoader {
                     vertices[j] = v;
                 }
 
-                graphs[i] = new GraphChunk();
-                graphs[i].vertices = vertices;
+                graphs[i] = new GraphChunk(vertices.length);
+                graphs[i].vertices = vertices; // możesz to zostawić, ale jest nadmiarowe
                 graphs[i].totalVertices = vertices.length;
             }
             System.out.println("Plik tekstowy wczytany poprawnie.");
@@ -76,9 +81,14 @@ public class GraphLoader {
     }
     public static GraphChunk[] loadGraphFromBin(String filename) {
         try {
-            byte[] fileBytes = Files.readAllBytes(Path.of("data/"+filename));
+            byte[] fileBytes = Files.readAllBytes(Path.of("data/" + filename));
             ByteBuffer buffer = ByteBuffer.wrap(fileBytes);
             buffer.order(ByteOrder.LITTLE_ENDIAN);
+
+            if (buffer.remaining() < 7) { // 4 bajty sygnatury + 1 bajt wersji + 2 bajty numParts
+                System.err.println("Plik zbyt krótki");
+                return null;
+            }
 
             byte[] signature = new byte[4];
             buffer.get(signature);
@@ -93,18 +103,34 @@ public class GraphLoader {
                 return null;
             }
 
-            int numParts = Byte.toUnsignedInt(buffer.get());
+            int numParts = Short.toUnsignedInt(buffer.getShort()); // ✅ teraz 2 bajty
             GraphChunk[] parts = new GraphChunk[numParts];
 
             for (int i = 0; i < numParts; i++) {
+                if (buffer.remaining() < 2) {
+                    System.err.println("Brakuje danych: liczba wierzchołków");
+                    return null;
+                }
+
                 int count = Short.toUnsignedInt(buffer.getShort());
-                Vertex[] vertices = new Vertex[count];
+                List<Vertex> vertexList = new ArrayList<>();
+                int maxId = -1;
 
                 for (int j = 0; j < count; j++) {
+                    if (buffer.remaining() < 8) { // ✅ 4 × 2 bajty = id, x, y, degree
+                        System.err.println("Brakuje danych: nagłówek wierzchołka");
+                        return null;
+                    }
+
                     int id = Short.toUnsignedInt(buffer.getShort());
                     int x = buffer.getShort(); // signed
                     int y = buffer.getShort(); // signed
-                    int deg = Byte.toUnsignedInt(buffer.get());
+                    int deg = Short.toUnsignedInt(buffer.getShort()); // ✅ teraz 2 bajty
+
+                    if (buffer.remaining() < deg * 2) {
+                        System.err.println("Brakuje danych: krawędzie");
+                        return null;
+                    }
 
                     int[] edges = new int[deg];
                     for (int k = 0; k < deg; k++) {
@@ -116,12 +142,16 @@ public class GraphLoader {
                     v.y = y;
                     v.edges = edges;
                     v.groupId = i;
-                    vertices[j] = v;
+
+                    vertexList.add(v);
+                    maxId = Math.max(maxId, id);
                 }
 
-                GraphChunk g = new GraphChunk();
-                g.vertices = vertices;
-                g.totalVertices = vertices.length;
+                GraphChunk g = new GraphChunk(maxId + 1);
+                for (Vertex v : vertexList) {
+                    g.vertices[v.id] = v;
+                }
+                g.totalVertices = maxId + 1;
                 parts[i] = g;
             }
 
@@ -129,10 +159,12 @@ public class GraphLoader {
             return parts;
 
         } catch (IOException e) {
-            e.printStackTrace();
+            System.err.println("Błąd odczytu pliku: " + e.getMessage());
             return null;
         }
     }
+
+
 
 
 }

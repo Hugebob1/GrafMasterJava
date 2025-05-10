@@ -14,12 +14,19 @@ import java.awt.Color;
 public class Gui {
 
     //
-
+    public static GraphChunk []splited;
     public static GraphChunk []graphs; //podgrafy
     public static String filename; //tmp
     public static JList<String> listaPlikow; //lista plikow dostepnych do wczytania
-    public static JTextField Errors = new JTextField(15); // wyswietla komunikaty programu
+    public static JTextArea Errors = new JTextArea(2,20); // wyswietla komunikaty programu
     public static JTextField field = new JTextField(10); // wyswietla jaki graf wczytany
+    public static JTextField fieldP = new JTextField(10); // liczba czesci z tego bedzie
+    public static JTextField fieldD = new JTextField(10); // % z tego bedzie
+
+    public static JTextField fieldTxt = new JTextField(10); // liczba czesci z tego bedzie
+    public static JTextField fieldBin = new JTextField(10); // % z tego bedzie
+
+    public static JTextField GrNr = new JTextField(10);
 
     public static void window(){
         JFrame frame = new JFrame("Wybierz plik");
@@ -74,7 +81,9 @@ public class Gui {
     }
 
     public static void lol(){
-
+        Errors.setLineWrap(true);
+        Errors.setWrapStyleWord(true);
+        Errors.setEditable(false);
 
         JFrame frame = new JFrame("Panel z górnym paskiem");
         frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
@@ -106,24 +115,33 @@ public class Gui {
         fieldPanel.setBorder(BorderFactory.createTitledBorder("Wczytany Graf"));
         fieldPanel.add(field, BorderLayout.CENTER);
 
-        JTextField fieldP = new JTextField(10);
+
 
         JPanel f2 = new JPanel(new BorderLayout());
         f2.setBorder(BorderFactory.createTitledBorder("Liczba Czesci"));
         f2.add(fieldP, BorderLayout.CENTER);
 
-        JTextField fieldD = new JTextField(10);
 
         JPanel f1 = new JPanel(new BorderLayout());
         f1.setBorder(BorderFactory.createTitledBorder("Roznica %"));
         f1.add(fieldD, BorderLayout.CENTER);
 
-        JTextField GrNr = new JTextField(10);
+
+        JPanel f2T = new JPanel(new BorderLayout());
+        f2T.setBorder(BorderFactory.createTitledBorder("Nazwa pliku txt"));
+        f2T.add(fieldTxt, BorderLayout.CENTER);
+
+
+        JPanel f1B = new JPanel(new BorderLayout());
+        f1B.setBorder(BorderFactory.createTitledBorder("Nazwa pliku bin"));
+        f1B.add(fieldBin, BorderLayout.CENTER);
+
+
+
 
         JPanel f5 = new JPanel(new BorderLayout());
         f5.setBorder(BorderFactory.createTitledBorder("Numer Grafu"));
         f5.add(GrNr, BorderLayout.CENTER);
-
 
 //        JTextField Errors = new JTextField(15);
 
@@ -134,6 +152,7 @@ public class Gui {
         JButton loadGraf = new JButton("Wczytaj Graf");
         JButton drawGraf = new JButton("Rysuj Graf");
         JButton splitGraf = new JButton("Podziel Graf");
+        JButton saveGraf = new JButton("Zapisz Graf");
 
         JPanel gridPanel = new JPanel();
 
@@ -151,15 +170,20 @@ public class Gui {
 // Przycisk 3: Podziel graf
         splitGraf.addActionListener(e -> podzielGraf());
 
-        topPanel.add(Fe);
+        saveGraf.addActionListener(e -> zapiszGraf());
+
+        topPanel.add(Fe); // komunikaty
         topPanel.add(loadGraf);
         topPanel.add(drawGraf);
         topPanel.add(splitGraf);
-        topPanel.add(f2);
-        topPanel.add(f1);
-        topPanel.add(f5);
-        topPanel.add(fieldPanel);
-        topPanel.add(listaPanel);
+        topPanel.add(saveGraf);
+        topPanel.add(f2); // liczba czesci
+        topPanel.add(f1); // roznica
+        topPanel.add(f5); //numer grafu
+        topPanel.add(f1B); // nazwa pliku bin
+        topPanel.add(f2T); //nazwa pliku txt
+        topPanel.add(fieldPanel); // wczytany graf
+        topPanel.add(listaPanel); // lista plikow
 
 
         frame.add(topPanel, BorderLayout.NORTH);
@@ -204,7 +228,117 @@ public class Gui {
 
     private static void podzielGraf() {
         System.out.println("Kliknięto: Podziel Graf");
-        // TODO: tu dodaj kod dzielący graf na części
+
+
+        if (graphs == null) {
+            Errors.setText("Najpierw wczytaj graf.");
+            return;
+        }
+
+        if (graphs.length != 1) {
+            Errors.setText("Wiecej niz 1 graf w pliku.");
+        }
+
+        if (fieldD == null || fieldP == null) {
+            Errors.setText("Brak danych wejściowych.");
+            return;
+        }
+
+        //System.out.println(graphs.length);
+        try {
+
+            if(graphs.length==1) {
+                int n = Integer.parseInt(fieldP.getText().trim());
+                float d = Float.parseFloat(fieldD.getText().trim());
+                GraphChunk g = graphs[0];
+                //GraphChunk.printGraph(g);
+
+                // TODO: Wywołaj tu podział
+                GraphChunk[] podzielone = GraphPartitioner.splitGraphRetryIfNeeded(g, n, d);
+                if (podzielone == null) {
+                    Errors.setText("Nie udało się podzielić grafu.");
+                }else if(!GraphPartitioner.diff(podzielone, d)) {
+                    Errors.setText("Roznica przekroczona");
+                } else {
+                    graphs = podzielone;
+                    splited = graphs;
+                    Errors.setText("Graf podzielono na " + n + " części.");
+                }
+            }
+            else{
+                int gNum = Integer.parseInt(GrNr.getText().trim())-1;
+                int n = Integer.parseInt(fieldP.getText().trim());
+                float d = Float.parseFloat(fieldD.getText().trim());
+                if(gNum>=graphs.length || gNum<0){
+                    Errors.setText("Nie ma takiego grafu");
+                    return;
+                }
+                GraphChunk g = graphs[gNum];
+                //GraphChunk.printGraph(g);
+
+                // TODO: Wywołaj tu podział
+
+                GraphChunk[] podzielone = GraphPartitioner.splitGraphRetryIfNeeded(g, n, d);
+                //GraphPartitioner.diff(podzielone, d);
+                if (podzielone == null) {
+                    Errors.setText("Nie udało się podzielić grafu.");
+                } else if(!GraphPartitioner.diff(podzielone, d)) {
+                    Errors.setText("Roznica przekroczona");
+                } else {
+                    graphs = podzielone;
+                    splited = graphs;
+                    Errors.setText("Graf podzielono na " + n + " części.");
+                }
+            }
+            GrNr.setText("");
+            fieldD.setText("");
+            fieldP.setText("");
+
+        } catch (NumberFormatException e) {
+            Errors.setText("Błąd: podaj poprawne liczby (części i % różnicy).");
+        }
+    }
+    public static void zapiszGraf() {
+        if (splited == null) {
+            Errors.setText("Najpierw podziel graf.");
+            return;
+        }
+
+        String fileTxt = fieldTxt.getText().trim();
+        String fileBin = fieldBin.getText().trim();
+
+        boolean saved = false;
+
+        if (!fileTxt.isEmpty()) {
+            try {
+                GraphSaver.saveGraphsTxt(splited, fileTxt);
+                saved = true;
+            } catch (Exception e) {
+                Errors.setText("Błąd zapisu TXT: " + e.getMessage());
+                return;
+            }
+        }
+
+        if (!fileBin.isEmpty()) {
+            try {
+                GraphSaver.saveGraphsBin(splited, fileBin);
+                saved = true;
+            } catch (Exception e) {
+                Errors.setText("Błąd zapisu BIN: " + e.getMessage());
+                return;
+            }
+        }
+
+        if (saved) {
+            Errors.setText("Pomyślnie zapisano.");
+            fieldTxt.setText("");
+            fieldBin.setText("");
+
+            DefaultListModel<String> model = getFiles("data");
+            listaPlikow.setModel(model);
+        } else {
+            Errors.setText("Podaj przynajmniej jedną nazwę pliku.");
+        }
     }
 
     private static void generujSiatkeZGrafami(GraphChunk[] graphs, JPanel gridWrapper, JFrame frame) {
