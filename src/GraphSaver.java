@@ -1,3 +1,4 @@
+import javax.swing.*;
 import java.io.*;
 import java.nio.*;
 import java.nio.file.*;
@@ -27,7 +28,6 @@ public class GraphSaver {
     }
     public static void saveGraphsBin(GraphChunk[] subgraphs, String filename) {
         System.out.println("=== ✅ ZAPISUJĘ GRAF POPRAWNIE (GraphSaverFinal) ===");
-
         ByteBuffer buffer = ByteBuffer.allocate(10_000_000);
         buffer.order(ByteOrder.LITTLE_ENDIAN);
 

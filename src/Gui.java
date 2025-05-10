@@ -299,6 +299,7 @@ public class Gui {
         }
     }
     public static void zapiszGraf() {
+
         if (splited == null) {
             Errors.setText("Najpierw podziel graf.");
             return;
@@ -308,7 +309,34 @@ public class Gui {
         String fileBin = fieldBin.getText().trim();
 
         boolean saved = false;
-
+        // Walidacja pliku tesktowego
+        if (!fileTxt.isEmpty()) {
+            if (!fileTxt.toLowerCase().endsWith(".txt")) {
+                Errors.setText("Nieprawidłowe rozszerzenie pliku TXT! Oczekiwano pliku .txt.");
+                return;
+            }
+            try {
+                GraphSaver.saveGraphsTxt(splited, fileTxt);
+                saved = true;
+            } catch (Exception e) {
+                Errors.setText("Błąd zapisu TXT: " + e.getMessage());
+                return;
+            }
+        }
+        // Walidacja pliku binarnego
+        if (!fileBin.isEmpty()) {
+            if (!fileBin.toLowerCase().endsWith(".bin")) {
+                Errors.setText("Nieprawidłowe rozszerzenie pliku BIN! Oczekiwano pliku .bin.");
+                return;
+            }
+            try {
+                GraphSaver.saveGraphsBin(splited, fileBin);
+                saved = true;
+            } catch (Exception e) {
+                Errors.setText("Błąd zapisu BIN: " + e.getMessage());
+                return;
+            }
+        }
         if (!fileTxt.isEmpty()) {
             try {
 
