@@ -311,6 +311,7 @@ public class Gui {
 
         if (!fileTxt.isEmpty()) {
             try {
+
                 GraphSaver.saveGraphsTxt(splited, fileTxt);
                 saved = true;
             } catch (Exception e) {
