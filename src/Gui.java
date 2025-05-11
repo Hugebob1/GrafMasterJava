@@ -1,8 +1,9 @@
 import javax.swing.*;
 import javax.swing.border.TitledBorder;
 import java.awt.*;
-import java.awt.event.FocusEvent;
-import java.awt.event.FocusListener;
+import java.awt.event.*;
+import java.awt.geom.AffineTransform;
+import java.awt.geom.Rectangle2D;
 import java.io.File;
 
 import java.util.ArrayList;
@@ -517,56 +518,77 @@ public class Gui {
         private final GraphChunk graph;
         private final Color vertexColor;
         private double zoom = 1.0;
-        private double offsetX = 0;
-        private double offsetY = 0;
+        private double panX = 0;
+        private double panY = 0;
+        private Point lastMousePos = null;
 
         public GraphPanel(GraphChunk graph, Color vertexColor) {
             this.graph = graph;
             this.vertexColor = vertexColor;
             setBackground(Color.WHITE);
 
+            // Zoom przy Ctrl + scroll
             addMouseWheelListener(e -> {
-                if(!e.isControlDown()){
-                    return;
-                }
-                int rot = e.getWheelRotation();
-                double oldZoom = zoom;
-
-                if (rot < 0 && zoom < 5.0) zoom *= 1.1;
-                else if (rot > 0 && zoom > 0.2) zoom /= 1.1;
-
-                double zoomFactor = zoom / oldZoom;
+                if (!e.isControlDown()) return;
 
                 double mouseX = e.getX();
                 double mouseY = e.getY();
 
-                offsetX = mouseX - (mouseX - offsetX) * zoomFactor;
-                offsetY = mouseY - (mouseY - offsetY) * zoomFactor;
+                double zoomFactor = (e.getWheelRotation() < 0) ? 1.1 : 1.0 / 1.1;
+                double oldZoom = zoom;
+                zoom *= zoomFactor;
+                zoom = Math.max(0.2, Math.min(zoom, 5.0));
 
-                if (zoom < 0.8 || zoom > 5.0) {
-                    offsetX = 0;
-                    offsetY = 0;
-                    zoom = 1.0;
-                }
+                // Uwzględnij środek grafu i skalowanie
+                Rectangle2D bounds = getGraphBounds();
+                double panelWidth = getWidth();
+                double panelHeight = getHeight();
+
+                double scaleX = (bounds.getWidth() == 0) ? 1 : (panelWidth - 40) / bounds.getWidth();
+                double scaleY = (bounds.getHeight() == 0) ? 1 : (panelHeight - 40) / bounds.getHeight();
+                double scale = Math.min(scaleX, scaleY);
+
+                double centerOffsetX = (panelWidth - bounds.getWidth() * scale) / 2.0;
+                double centerOffsetY = (panelHeight - bounds.getHeight() * scale) / 2.0;
+
+                // Pozycja kursora w układzie grafu
+                double graphX = (mouseX - panX - centerOffsetX) / (oldZoom * scale);
+                double graphY = (mouseY - panY - centerOffsetY) / (oldZoom * scale);
+
+                // Nowy panX/panY tak, by zachować punkt pod kursorem
+                panX = mouseX - (graphX * zoom * scale + centerOffsetX);
+                panY = mouseY - (graphY * zoom * scale + centerOffsetY);
 
                 repaint();
-
-                e.consume();
             });
 
+            // Dragowanie
+            addMouseListener(new MouseAdapter() {
+                public void mousePressed(MouseEvent e) {
+                    if (SwingUtilities.isLeftMouseButton(e)) {
+                        lastMousePos = e.getPoint();
+                    }
+                }
+
+                public void mouseReleased(MouseEvent e) {
+                    lastMousePos = null;
+                }
+            });
+
+            addMouseMotionListener(new MouseMotionAdapter() {
+                public void mouseDragged(MouseEvent e) {
+                    if (lastMousePos != null && SwingUtilities.isLeftMouseButton(e)) {
+                        Point current = e.getPoint();
+                        panX += current.x - lastMousePos.x;
+                        panY += current.y - lastMousePos.y;
+                        lastMousePos = current;
+                        repaint();
+                    }
+                }
+            });
         }
 
-        @Override
-        protected void paintComponent(Graphics g) {
-            super.paintComponent(g);
-            Graphics2D g2 = (Graphics2D) g;
-            g2.translate(offsetX, offsetY);
-            g2.scale(zoom, zoom);
-            g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
-
-            int radius = 20; // <- rozmiar kółek (wierzchołków)
-
-            // Znajdź zakres współrzędnych
+        private Rectangle2D getGraphBounds() {
             int minX = Integer.MAX_VALUE, maxX = Integer.MIN_VALUE;
             int minY = Integer.MAX_VALUE, maxY = Integer.MIN_VALUE;
 
@@ -577,44 +599,45 @@ public class Gui {
                 minY = Math.min(minY, v.y);
                 maxY = Math.max(maxY, v.y);
             }
+            return new Rectangle2D.Double(minX, minY, maxX - minX, maxY - minY);
+        }
 
-            int panelWidth = getWidth();
-            int panelHeight = getHeight();
+        @Override
+        protected void paintComponent(Graphics g) {
+            super.paintComponent(g);
+            Graphics2D g2 = (Graphics2D) g;
+            g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
 
-            // Skala
-            // Skala – osobna dla X i Y
-            double scaleX = (maxX - minX == 0) ? 1 : (double) (panelWidth - 2 * radius) / (maxX - minX);
-            double scaleY = (maxY - minY == 0) ? 1 : (double) (panelHeight - 2 * radius) / (maxY - minY);
+            int radius = 20;
 
-            scaleX *= zoom;
-            scaleY *= zoom;
+            Rectangle2D bounds = getGraphBounds();
+            double minX = bounds.getX();
+            double minY = bounds.getY();
+            double width = bounds.getWidth();
+            double height = bounds.getHeight();
 
-            //double scale = Math.min(scaleX, scaleY) * zoom; // zachowaj proporcje
+            double panelWidth = getWidth();
+            double panelHeight = getHeight();
 
-            // Wylicz wielkość grafu po przeskalowaniu
-            int graphWidth = (int) ((maxX - minX) * scaleX);
-            int graphHeight = (int) ((maxY - minY) * scaleY);
+            double scaleX = (width == 0) ? 1 : (panelWidth - 2 * radius) / width;
+            double scaleY = (height == 0) ? 1 : (panelHeight - 2 * radius) / height;
+            double scale = Math.min(scaleX, scaleY);
 
-            // Wyśrodkowanie
-            int offsetX = (panelWidth - graphWidth) / 2;
-            int offsetY = (panelHeight - graphHeight) / 2;
+            double centerOffsetX = (panelWidth - width * scale) / 2.0;
+            double centerOffsetY = (panelHeight - height * scale) / 2.0;
 
             // Rysowanie krawędzi
             g2.setColor(Color.BLACK);
             for (Vertex v : graph) {
                 if (v == null || v.edges == null) continue;
-
-                int x1 = offsetX + (int) ((v.x - minX) * scaleX);
-                int y1 = offsetY + (int) ((v.y - minY) * scaleY);
+                int x1 = (int) ((v.x - minX) * scale * zoom + centerOffsetX + panX);
+                int y1 = (int) ((v.y - minY) * scale * zoom + centerOffsetY + panY);
 
                 for (int i = 0; i < v.degree; i++) {
-                    int targetId = v.edges[i];
-                    Vertex t = graph.getById(targetId);
+                    Vertex t = graph.getById(v.edges[i]);
                     if (t == null) continue;
-
-                    int x2 = offsetX + (int) ((t.x - minX) * scaleX);
-                    int y2 = offsetY + (int) ((t.y - minY) * scaleY);
-
+                    int x2 = (int) ((t.x - minX) * scale * zoom + centerOffsetX + panX);
+                    int y2 = (int) ((t.y - minY) * scale * zoom + centerOffsetY + panY);
                     g2.drawLine(x1, y1, x2, y2);
                 }
             }
@@ -622,9 +645,8 @@ public class Gui {
             // Rysowanie wierzchołków
             for (Vertex v : graph) {
                 if (v == null) continue;
-
-                int x = offsetX + (int) ((v.x - minX) * scaleX);
-                int y = offsetY + (int) ((v.y - minY) * scaleY);
+                int x = (int) ((v.x - minX) * scale * zoom + centerOffsetX + panX);
+                int y = (int) ((v.y - minY) * scale * zoom + centerOffsetY + panY);
 
                 g2.setColor(vertexColor);
                 g2.fillOval(x - radius / 2, y - radius / 2, radius, radius);
@@ -637,9 +659,6 @@ public class Gui {
                 int h = fm.getAscent();
                 g2.drawString(label, x - w / 2, y + h / 2 - 2);
             }
-            System.out.println("GraphPanel rozmiar: " + getWidth() + " x " + getHeight());
-
-
         }
     }
     public static List<Color> generateColorPalette(int n) {
