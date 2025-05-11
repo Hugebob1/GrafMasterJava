@@ -37,8 +37,10 @@ public class Gui {
         JPanel przyciskiPanel = new JPanel(new FlowLayout(FlowLayout.LEFT));
         JButton rysujBtn = new JButton("Rysuj");
         JButton podzielBtn = new JButton("Podziel");
+        JButton forceBtn = new JButton("Force");
         przyciskiPanel.add(rysujBtn);
         przyciskiPanel.add(podzielBtn);
+        przyciskiPanel.add(forceBtn);
 
         DefaultListModel<String> model = getFiles("data");
 
@@ -153,6 +155,7 @@ public class Gui {
         JButton drawGraf = new JButton("Rysuj Graf");
         JButton splitGraf = new JButton("Podziel Graf");
         JButton saveGraf = new JButton("Zapisz Graf");
+        JButton forceGraf = new JButton("Force");
 
         JPanel gridPanel = new JPanel();
 
@@ -166,6 +169,8 @@ public class Gui {
                 Errors.setText( "Najpierw wczytaj graf.");
             }
         });
+        // Przycisk 3: Force
+        forceGraf.addActionListener(e -> przymusGraf());
 
 // Przycisk 3: Podziel graf
         splitGraf.addActionListener(e -> podzielGraf());
@@ -176,6 +181,7 @@ public class Gui {
         topPanel.add(loadGraf);
         topPanel.add(drawGraf);
         topPanel.add(splitGraf);
+        topPanel.add(forceGraf);
         topPanel.add(saveGraf);
         topPanel.add(f2); // liczba czesci
         topPanel.add(f1); // roznica
@@ -229,14 +235,9 @@ public class Gui {
     private static void podzielGraf() {
         System.out.println("Kliknięto: Podziel Graf");
 
-
         if (graphs == null) {
             Errors.setText("Najpierw wczytaj graf.");
             return;
-        }
-
-        if (graphs.length != 1) {
-            Errors.setText("Wiecej niz 1 graf w pliku.");
         }
 
         if (fieldD == null || fieldP == null) {
@@ -244,45 +245,42 @@ public class Gui {
             return;
         }
 
-        //System.out.println(graphs.length);
         try {
-
-            if(graphs.length==1) {
+            if (graphs.length == 1) {
                 int n = Integer.parseInt(fieldP.getText().trim());
                 float d = Float.parseFloat(fieldD.getText().trim());
                 GraphChunk g = graphs[0];
-                //GraphChunk.printGraph(g);
 
-                // TODO: Wywołaj tu podział
                 GraphChunk[] podzielone = GraphPartitioner.splitGraphRetryIfNeeded(g, n, d);
                 if (podzielone == null) {
                     Errors.setText("Nie udało się podzielić grafu.");
-                }else if(!GraphPartitioner.diff(podzielone, d)) {
+                } else if (!GraphPartitioner.diff(podzielone, d)) {
                     Errors.setText("Roznica przekroczona");
                 } else {
                     graphs = podzielone;
                     splited = graphs;
                     Errors.setText("Graf podzielono na " + n + " części.");
                 }
-            }
-            else{
-                int gNum = Integer.parseInt(GrNr.getText().trim())-1;
+            } else {
+                if (GrNr == null || GrNr.getText().trim().isEmpty()) {
+                    Errors.setText("Podaj numer grafu do podziału.");
+                    return;
+                }
+
+                int gNum = Integer.parseInt(GrNr.getText().trim()) - 1;
                 int n = Integer.parseInt(fieldP.getText().trim());
                 float d = Float.parseFloat(fieldD.getText().trim());
-                if(gNum>=graphs.length || gNum<0){
+
+                if (gNum >= graphs.length || gNum < 0) {
                     Errors.setText("Nie ma takiego grafu");
                     return;
                 }
+
                 GraphChunk g = graphs[gNum];
-                //GraphChunk.printGraph(g);
-
-                // TODO: Wywołaj tu podział
-
                 GraphChunk[] podzielone = GraphPartitioner.splitGraphRetryIfNeeded(g, n, d);
-                //GraphPartitioner.diff(podzielone, d);
                 if (podzielone == null) {
                     Errors.setText("Nie udało się podzielić grafu.");
-                } else if(!GraphPartitioner.diff(podzielone, d)) {
+                } else if (!GraphPartitioner.diff(podzielone, d)) {
                     Errors.setText("Roznica przekroczona");
                 } else {
                     graphs = podzielone;
@@ -290,6 +288,7 @@ public class Gui {
                     Errors.setText("Graf podzielono na " + n + " części.");
                 }
             }
+
             GrNr.setText("");
             fieldD.setText("");
             fieldP.setText("");
@@ -298,6 +297,61 @@ public class Gui {
             Errors.setText("Błąd: podaj poprawne liczby (części i % różnicy).");
         }
     }
+
+
+    private static void przymusGraf() {
+        System.out.println("Kliknięto: Force");
+
+        if (graphs == null) {
+            Errors.setText("Najpierw wczytaj graf.");
+            return;
+        }
+
+        if (fieldP == null) {
+            Errors.setText("Brak danych wejściowych.");
+            return;
+        }
+
+        try {
+            int n = Integer.parseInt(fieldP.getText().trim());
+
+            int gNum;
+            if (graphs.length == 1) {
+                gNum = 0;
+            } else {
+                if (GrNr == null || GrNr.getText().trim().isEmpty()) {
+                    Errors.setText("Podaj numer grafu do podziału.");
+                    return;
+                }
+
+                gNum = Integer.parseInt(GrNr.getText().trim()) - 1;
+
+                if (gNum < 0 || gNum >= graphs.length) {
+                    Errors.setText("Nie ma takiego grafu.");
+                    return;
+                }
+            }
+
+            GraphChunk g = graphs[gNum];
+            GraphChunk[] podzielone = GraphPartitioner.splitGraphRetryIfNeeded(g, n, 10000);
+            if (podzielone == null) {
+                Errors.setText("Nie udało się podzielić grafu.");
+            } else {
+                graphs = podzielone;
+                splited = graphs;
+                Errors.setText("Graf podzielono na " + n + " części.");
+            }
+
+            GrNr.setText("");
+            fieldD.setText("");
+            fieldP.setText("");
+
+        } catch (NumberFormatException e) {
+            Errors.setText("Błąd: podaj poprawną liczbę części.");
+        }
+    }
+
+
     public static void zapiszGraf() {
 
         if (splited == null) {
