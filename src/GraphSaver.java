@@ -27,7 +27,7 @@ public class GraphSaver {
         }
     }
     public static void saveGraphsBin(GraphChunk[] subgraphs, String filename) {
-        System.out.println("=== ✅ ZAPISUJĘ GRAF POPRAWNIE (GraphSaverFinal) ===");
+
         ByteBuffer buffer = ByteBuffer.allocate(10_000_000);
         buffer.order(ByteOrder.LITTLE_ENDIAN);
 
@@ -64,9 +64,9 @@ public class GraphSaver {
 
         try (FileOutputStream fos = new FileOutputStream("data/" + filename)) {
             fos.write(buffer.array(), 0, buffer.position());
-            System.out.println("✅ Plik zapisany: " + filename + " (" + buffer.position() + " bajtów)");
+            System.out.println("Plik zapisany: " + filename + " (" + buffer.position() + " bajtów)");
         } catch (IOException e) {
-            System.err.println("❌ Błąd zapisu: " + e.getMessage());
+            System.err.println("Błąd zapisu: " + e.getMessage());
         }
     }
 

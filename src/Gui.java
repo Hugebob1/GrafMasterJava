@@ -12,7 +12,7 @@ import java.util.HashSet;
 import java.util.Set;
 import java.awt.Color;
 
-public class Gui {
+public class Gui extends JFrame {
 
     //
     public static GraphChunk []splited;
@@ -28,6 +28,7 @@ public class Gui {
     public static JTextField fieldBin = new JTextField(10); // % z tego bedzie
 
     public static JTextField GrNr = new JTextField(10);
+    public static int savedG = 0;
 
     public static void window(){
         JFrame frame = new JFrame("Wybierz plik");
@@ -83,13 +84,16 @@ public class Gui {
         return model;
     }
 
-    public static void lol(){
+    public void lol(){
         Errors.setLineWrap(true);
         Errors.setWrapStyleWord(true);
         Errors.setEditable(false);
 
         JFrame frame = new JFrame("Panel z górnym paskiem");
-        frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
+        frame.setDefaultCloseOperation(JFrame.DO_NOTHING_ON_CLOSE);
+        //frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
+
+
         frame.setSize(1920, 1080);
         frame.setLayout(new BorderLayout());
 
@@ -102,6 +106,26 @@ public class Gui {
         DefaultListModel<String> model = getFiles("data");
 
         listaPlikow = getStringJList(model);
+
+        frame.addWindowListener(new WindowAdapter() {
+            @Override
+            public void windowClosing(WindowEvent e) {
+                if (savedG == 1) {
+                    int result = JOptionPane.showConfirmDialog(
+                            frame,  // <- ważne
+                            "Nie zapisano podziału. Czy na pewno chcesz wyjść?",
+                            "Ostrzeżenie",
+                            JOptionPane.YES_NO_OPTION,
+                            JOptionPane.WARNING_MESSAGE
+                    );
+                    if (result == JOptionPane.YES_OPTION) {
+                        frame.dispose();
+                    }
+                } else {
+                    frame.dispose();
+                }
+            }
+        });
 
         JScrollPane scrollPane = new JScrollPane(listaPlikow);
         scrollPane.setPreferredSize(new Dimension(300, 120));
@@ -203,6 +227,8 @@ public class Gui {
 
 
 //        frame.add(gridPanel, BorderLayout.CENTER);
+
+
         frame.setVisible(true);
 
 
@@ -250,6 +276,15 @@ public class Gui {
             if (graphs.length == 1) {
                 int n = Integer.parseInt(fieldP.getText().trim());
                 float d = Float.parseFloat(fieldD.getText().trim());
+                if (n <= 0) {
+                    Errors.setText("Liczba części musi być większa od zera.");
+                    return;
+                }
+                if (d < 0) {
+                    Errors.setText("Procent różnicy nie może być ujemny.");
+                    return;
+                }
+
                 GraphChunk g = graphs[0];
 
                 GraphChunk[] podzielone = GraphPartitioner.splitGraphRetryIfNeeded(g, n, d);
@@ -261,6 +296,8 @@ public class Gui {
                     graphs = podzielone;
                     splited = graphs;
                     Errors.setText("Graf podzielono na " + n + " części.");
+                    savedG = 1;
+
                 }
             } else {
                 if (GrNr == null || GrNr.getText().trim().isEmpty()) {
@@ -271,6 +308,16 @@ public class Gui {
                 int gNum = Integer.parseInt(GrNr.getText().trim()) - 1;
                 int n = Integer.parseInt(fieldP.getText().trim());
                 float d = Float.parseFloat(fieldD.getText().trim());
+
+                if (n <= 0) {
+                    Errors.setText("Liczba części musi być większa od zera.");
+                    return;
+                }
+                if (d < 0) {
+                    Errors.setText("Procent różnicy nie może być ujemny.");
+                    return;
+                }
+
 
                 if (gNum >= graphs.length || gNum < 0) {
                     Errors.setText("Nie ma takiego grafu");
@@ -287,6 +334,8 @@ public class Gui {
                     graphs = podzielone;
                     splited = graphs;
                     Errors.setText("Graf podzielono na " + n + " części.");
+                    savedG = 1;
+
                 }
             }
 
@@ -314,8 +363,6 @@ public class Gui {
         }
 
         try {
-            int n = Integer.parseInt(fieldP.getText().trim());
-
             int gNum;
             if (graphs.length == 1) {
                 gNum = 0;
@@ -334,13 +381,14 @@ public class Gui {
             }
 
             GraphChunk g = graphs[gNum];
-            GraphChunk[] podzielone = GraphPartitioner.splitGraphRetryIfNeeded(g, n, 10000);
+            GraphChunk[] podzielone = GraphPartitioner.splitGraphRetryIfNeeded(g, 2, 10000);
             if (podzielone == null) {
                 Errors.setText("Nie udało się podzielić grafu.");
             } else {
                 graphs = podzielone;
                 splited = graphs;
-                Errors.setText("Graf podzielono na " + n + " części.");
+                Errors.setText("Graf podzielono na " + 2 + " części.");
+                savedG = 1;
             }
 
             GrNr.setText("");
@@ -392,31 +440,11 @@ public class Gui {
                 return;
             }
         }
-        if (!fileTxt.isEmpty()) {
-            try {
-
-                GraphSaver.saveGraphsTxt(splited, fileTxt);
-                saved = true;
-            } catch (Exception e) {
-                Errors.setText("Błąd zapisu TXT: " + e.getMessage());
-                return;
-            }
-        }
-
-        if (!fileBin.isEmpty()) {
-            try {
-                GraphSaver.saveGraphsBin(splited, fileBin);
-                saved = true;
-            } catch (Exception e) {
-                Errors.setText("Błąd zapisu BIN: " + e.getMessage());
-                return;
-            }
-        }
-
         if (saved) {
             Errors.setText("Pomyślnie zapisano.");
             fieldTxt.setText("");
             fieldBin.setText("");
+            savedG = 1;
 
             DefaultListModel<String> model = getFiles("data");
             listaPlikow.setModel(model);
@@ -562,6 +590,15 @@ public class Gui {
                 repaint();
             });
 
+            addMouseListener(new MouseAdapter() {
+                @Override
+                public void mouseClicked(MouseEvent e) {
+                    if (e.getClickCount() == 2 && SwingUtilities.isLeftMouseButton(e)) {
+                        resetView();
+                    }
+                }
+            });
+
             // Dragowanie
             addMouseListener(new MouseAdapter() {
                 public void mousePressed(MouseEvent e) {
@@ -586,6 +623,12 @@ public class Gui {
                     }
                 }
             });
+        }
+        public void resetView() {
+            zoom = 1.0;
+            panX = 0;
+            panY = 0;
+            repaint();
         }
 
         private Rectangle2D getGraphBounds() {

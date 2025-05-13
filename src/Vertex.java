@@ -26,5 +26,4 @@ public class Vertex {
         v.active = 1;
         return v;
     }
-
 }
